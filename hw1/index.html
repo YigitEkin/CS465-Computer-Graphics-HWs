@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HW1</title>
+</head>
+<body>
+    <h1 style="text-align: center; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif">Assignment 1: 2D Paint Application With Triangles</h1>
+    <div style="display: flex; width: 100%;">
+        <canvas id="gl-canvas" width="600" height="600" style="border:1px solid #000000; margin: auto;"></canvas>
+    </div>
+    <div style="display: flex; width: 100%; margin-top: 40px; justify-content: center;">
+        <button id="color6" style="background-color: #000000; width: 50px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;"></button>
+        <button id="color1" style="background-color: #ff0000; width: 50px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;"></button>
+        <button id="color2" style="background-color: #00ff00; width: 50px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;"></button>
+        <button id="color3" style="background-color: #ff00ff; width: 50px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;"></button>
+        <button id="color4" style="background-color: #ffff00; width: 50px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;"></button>
+        <button id="color5" style="background-color: #00ffff; width: 50px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;"></button>
+        <button id="undo" style="width: 50px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;">Undo</button>
+        <button id="redo" style="width: 50px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;">Redo</button>
+        <button id="eraser" style="width: 50px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;">Eraser</button>
+        <button id="clear" style="width: 100px; height: 50px; border-radius: 50%; border: none; margin-left: 10px;">Rectangular Selection</button>
+    </div>
+
+<script type="module" src="./scripts/app.js"></script>
+<script type="module" src="./scripts/utils.js"></script>
+   </body>
+</html>
