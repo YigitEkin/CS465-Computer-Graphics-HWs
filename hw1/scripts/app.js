@@ -2,13 +2,13 @@
 1 done
 2 done
 3 done
-4 done
+4 done 
 5 eraser
-6 done
+6 done (move after zoom in and out)
 7 rectangular selection
 8 rectangular selection copy
 9 3 layers
-10 buggy
+10 done
 */
 
 var canvas;
@@ -24,8 +24,8 @@ var MAX_NUMBER_OF_REDO = 20;
 var undoIndexArray = [];
 var undoCounter = 0;
 var redoIndexArray = [];
-var saveVertexData = [];
-var saveColorData = [];
+var vertexData = [];
+var colorData = [];
 
 [0,0,0,0,0,1,0,0,0,1,0,0]
 
@@ -56,7 +56,7 @@ window.onload = function init() {
   if (!gl) { alert("WebGL isn't available"); }
 
   canvas.addEventListener("mousedown", function (event) {
-    redraw = scale === 1 ? true : false; 
+    redraw = true;
   });
 
   canvas.addEventListener("mouseup", function (event) {
@@ -116,12 +116,12 @@ window.onload = function init() {
       undoCounter = undoCounter + 3;
       gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 8 * index, flatten(vertices));
-      saveVertexData.push(...vertices.flat());
+      vertexData.push(...vertices.flat());
       gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
       vertices_color = [vec4(selectedColor),
       vec4(selectedColor),
       vec4(selectedColor)];
-      saveColorData.push(...vertices_color.flat());
+      colorData.push(...vertices_color.flat());
       gl.bufferSubData(gl.ARRAY_BUFFER, 16 * index, flatten(vertices_color));
       index = (index + 3);
     }
@@ -165,6 +165,7 @@ window.onload = function init() {
     }
     scaleLoc = gl.getUniformLocation(program, "scale");
     gl.uniform1f(scaleLoc, scale);
+    document.getElementById("zoomScale").innerHTML = scale.toFixed(1);
   };
 
   document.getElementById("ClearButton").onclick = function (event) {
@@ -180,8 +181,8 @@ window.onload = function init() {
     // you do not need to save the scale or the selected color.
     var saveData = {
         "index": index * 8,
-        "vertices": flatten(saveVertexData),
-        "colors": flatten(saveColorData)
+        "vertices": flatten(vertexData),
+        "colors": flatten(colorData)
     };
 
     //download save data as a file
@@ -200,9 +201,10 @@ window.onload = function init() {
     // You should clear the current canvas before loading the saved data.
     var file = event.target.files[0];
     var reader = new FileReader();
+    document.getElementById("ClearButton").click();
     reader.onload = function (event) {
         var saveData = JSON.parse(event.target.result);
-        index = saveData.index;
+        index = saveData.index / 8;
         newVertices = Object.values(saveData.vertices);
         newColors = Object.values(saveData.colors);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -211,8 +213,12 @@ window.onload = function init() {
         gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(newColors));
         gl.drawArrays(gl.TRIANGLES, 0, index);
+        vertexData.push(...newVertices);
+        colorData.push(...newColors);
     };
     reader.readAsText(file);
+
+    this.value = null;
   };
 
    document.getElementById("undo").onclick = function (event) {
@@ -254,7 +260,7 @@ window.onload = function init() {
 
   var vBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, 8 * maxNumVertices, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, 8 * maxNumVertices, gl.DYNAMIC_DRAW);
 
   var vPosition = gl.getAttribLocation(program, "vPosition");
   gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
@@ -266,7 +272,7 @@ window.onload = function init() {
 
   var cBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, 16 * maxNumVertices, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, 16 * maxNumVertices, gl.DYNAMIC_DRAW);
 
   var vColor = gl.getAttribLocation(program, "vColor");
   gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
