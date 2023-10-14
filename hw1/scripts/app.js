@@ -4,7 +4,7 @@
 3 done
 4 done 
 5 eraser
-6 done (move after zoom in and out)
+6 done
 7 rectangular selection
 8 rectangular selection copy
 9 3 layers
@@ -26,10 +26,12 @@ var undoCounter = 0;
 var redoIndexArray = [];
 var vertexData = [];
 var colorData = [];
-
-[0,0,0,0,0,1,0,0,0,1,0,0]
+var currentActiveZIndex = -0.5;
 
 var redraw = false;
+var eraseMode = false;
+var zoomMode = false;
+
 
 var colors = [
   vec4(0.0, 0.0, 0.0, 1.0),  // black
@@ -44,8 +46,8 @@ var colors = [
 var selectedColor = colors[0];
 
 function transformPoints(x, y) {
-  var t = vec2(2 * x / canvas.width - 1,
-    2 * (canvas.height - y) / canvas.height - 1);
+  var t = vec3(2 * x / canvas.width - 1,
+    2 * (canvas.height - y) / canvas.height - 1, currentActiveZIndex);
   return t;
 }
 
@@ -57,6 +59,7 @@ window.onload = function init() {
 
   canvas.addEventListener("mousedown", function (event) {
     redraw = true;
+
   });
 
   canvas.addEventListener("mouseup", function (event) {
@@ -67,10 +70,48 @@ window.onload = function init() {
     undoIndexArray.push(undoCounter);
     undoCounter = 0;
   });
+
+  document.getElementById("erase").onclick = function (event) {
+    eraseMode = !eraseMode;
+    if (eraseMode) {
+      document.getElementById("erase").innerHTML = "Draw";
+    } else {
+      document.getElementById("erase").innerHTML = "Erase";
+    }
+  }
   
   canvas.addEventListener("mousemove", function (event) {
 
-    if (redraw) {
+    if (zoomMode && !eraseMode && redraw) {
+      // find a transition vector for moving objects on the canvas
+      var deltaX = event.movementX;
+      var deltaY = event.movementY * -1;
+
+      // scale the transition vector
+      deltaX *= 1 / scale;
+      deltaY *= 1 / scale;
+
+      //normalize the transition vector
+      var normalizedDeltaX = deltaX / canvas.width;
+      var normalizedDeltaY = deltaY / canvas.height;
+
+      //apply the transition vector to vertices
+      for (var i = 0; i < vertexData.length; i += 3) {
+        vertexData[i] += normalizedDeltaX;
+        vertexData[i + 1] += normalizedDeltaY;
+      }
+
+      //update the vertex buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
+
+      //draw the canvas
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, index);
+
+    }
+
+    if (!eraseMode && redraw && !zoomMode) {
       var squareX = Math.floor(event.clientX / UNIT_SQUARE_DIM);
       var squareY = Math.floor(event.clientY / UNIT_SQUARE_DIM);
       // Calculate the center of the square unit
@@ -113,18 +154,39 @@ window.onload = function init() {
           ];
         }
       }
-      undoCounter = undoCounter + 3;
+
+      
+      //update the vertex buffer
+      // vertices are vec4 objects
       gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 8 * index, flatten(vertices));
-      vertexData.push(...vertices.flat());
+      gl.bufferSubData(gl.ARRAY_BUFFER, 12 * index, flatten(vertices));
+      vertexData.push(...flatten(vertices));
+
+      //update the color buffer
+      // colors are vec4 objects
+      var newColors = [];
+      for (var i = 0; i < 3; i++) {
+        newColors.push(selectedColor);
+      }
       gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
-      vertices_color = [vec4(selectedColor),
-      vec4(selectedColor),
-      vec4(selectedColor)];
-      colorData.push(...vertices_color.flat());
-      gl.bufferSubData(gl.ARRAY_BUFFER, 16 * index, flatten(vertices_color));
-      index = (index + 3);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 16 * index, flatten(newColors));
+      colorData.push(...flatten(newColors));
+
+      //draw the canvas
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      index += 3;
+      undoCounter += 3;
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, index + 3);
     }
+
+    if (eraseMode && redraw && !zoomMode) {
+      //TODO: erase mode
+    }
+
+
+    
+
 
   });
 
@@ -154,23 +216,40 @@ window.onload = function init() {
     }
   };
 
+  document.getElementById("LayerControls").onclick = function (event) {
+    switch (event.target.index) {
+      case -0.5:
+        currentActiveZIndex = -0.5;
+        break;
+      case 0:
+        currentActiveZIndex = 0;
+        break;
+      case 0.5:
+        currentActiveZIndex = 0.5;
+        break;
+    }
+  }
+
   document.getElementById("ZoomControls").onclick = function (event) {
     switch (event.target.index) {
       case 0:
         scale += 0.2;
         break;
       case 1:
-        scale -= 0.2;
+        if (scale > 0.2){
+          scale -= 0.2;
+        }
         break;
     }
     scaleLoc = gl.getUniformLocation(program, "scale");
     gl.uniform1f(scaleLoc, scale);
     document.getElementById("zoomScale").innerHTML = scale.toFixed(1);
+    zoomMode = scale != 1;
   };
 
   document.getElementById("ClearButton").onclick = function (event) {
     index = 0;
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     undoIndexArray = [];
     undoCounter = 0;
     redoIndexArray = [];
@@ -207,7 +286,7 @@ window.onload = function init() {
         index = saveData.index / 8;
         newVertices = Object.values(saveData.vertices);
         newColors = Object.values(saveData.colors);
-        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(newVertices));
         gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
@@ -226,7 +305,7 @@ window.onload = function init() {
            var decrease_index = undoIndexArray.pop();
            redoIndexArray.push(decrease_index);
            index -= decrease_index;
-           gl.clear(gl.COLOR_BUFFER_BIT);
+           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
            gl.drawArrays(gl.TRIANGLES, 0, index);
        } else {
            alert("Nothing to undo");
@@ -238,7 +317,7 @@ window.onload = function init() {
             var increase_index = redoIndexArray.pop();
             undoIndexArray.push(increase_index);
             index += increase_index;
-            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             gl.drawArrays(gl.TRIANGLES, 0, index);
          } else {
             alert("Nothing to redo");
@@ -263,7 +342,7 @@ window.onload = function init() {
   gl.bufferData(gl.ARRAY_BUFFER, 8 * maxNumVertices, gl.DYNAMIC_DRAW);
 
   var vPosition = gl.getAttribLocation(program, "vPosition");
-  gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0);
+  gl.vertexAttribPointer(vPosition, 3, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vPosition);
 
   scaleLoc = gl.getUniformLocation(program, "scale");
@@ -278,14 +357,17 @@ window.onload = function init() {
   gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vColor);
 
-  render();
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthFunc(gl.LEQUAL);
 
+
+  render();
 }
 
 
 function render() {
 
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLES, 0, index);
 
   setTimeout(

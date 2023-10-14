@@ -20,7 +20,7 @@ varying vec4 fColor;
 void
 main()
 {
-    vec4 scaledPosition = vec4(vPosition.x * scale, vPosition.y * scale, vPosition.z * scale, vPosition.w);
+    vec4 scaledPosition = vec4(vPosition.x * scale, vPosition.y * scale, vPosition.z, vPosition.w);
     gl_Position = scaledPosition;
     fColor = vColor;
 }
@@ -59,6 +59,11 @@ main()
       <option value="5" style="color: magenta;">Magenta</option>
       <option value="6" style="color: cyan;">Cyan</option>
     </select>
+    <select id="LayerControls" size="3">
+      <option value="-0.5" selected>Layer 1</option>
+      <option value="0">Layer 2</option>
+      <option value="0.5">Layer 3</option>
+    </select>
     <select id="ZoomControls" size="2">
       <option value="0">Zoom In</option>
       <option value="1">Zoom Out</option>
@@ -71,6 +76,7 @@ main()
     <button id="undo">Undo</button>
     <button id="redo">Redo</button>
     <button id="save">Save</button>
+    <button id="erase">Erase</button>
     <input type="file" id="load" accept=".json"/> 
   </div>
 </body>
