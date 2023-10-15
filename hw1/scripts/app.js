@@ -3,11 +3,11 @@
 2 done
 3 done
 4 done 
-5 eraser
+5 eraser (also keep in mind z-index) (does not find a match for the triangle to be erased)
 6 done
-7 rectangular selection
-8 rectangular selection copy
-9 3 layers
+7 rectangular selection (also keep in mind z-index)
+8 rectangular selection copy (also keep in mind z-index)
+9  done
 10 done
 */
 
@@ -26,11 +26,13 @@ var undoCounter = 0;
 var redoIndexArray = [];
 var vertexData = [];
 var colorData = [];
-var currentActiveZIndex = -0.5;
+var currentActiveZIndex = -1;
 
 var redraw = false;
 var eraseMode = false;
 var zoomMode = false;
+var rectangularSelectMode = false;
+var rectangularSelectCopyMode = false;
 
 
 var colors = [
@@ -59,7 +61,11 @@ window.onload = function init() {
 
   canvas.addEventListener("mousedown", function (event) {
     redraw = true;
-
+    if (rectangularSelectMode) {
+      redraw = false;
+      // get the coordinates of the mouse click
+      var rectangularSelectBeginnngPoint = vec2(event.clientX, event.clientY);
+    }
   });
 
   canvas.addEventListener("mouseup", function (event) {
@@ -181,12 +187,80 @@ window.onload = function init() {
     }
 
     if (eraseMode && redraw && !zoomMode) {
-      //TODO: erase mode
-    }
+      var squareX = Math.floor(event.clientX / UNIT_SQUARE_DIM);
+      var squareY = Math.floor(event.clientY / UNIT_SQUARE_DIM);
+      // Calculate the center of the square unit
+      var squareCenterX = squareX * UNIT_SQUARE_DIM + (UNIT_SQUARE_DIM / 2);
+      var squareCenterY = squareY * UNIT_SQUARE_DIM + (UNIT_SQUARE_DIM / 2);
 
+      // Calculate the relative distance from the mouse to the square center
+      var deltaX = event.clientX - squareCenterX;
+      var deltaY = event.clientY - squareCenterY;
+      // Determine which triangle within the square the mouse is on
+      let vertices = null;
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        // Mouse is closer to the left or right triangle
+        if (deltaX < 0) {
+          vertices = [
+            transformPoints(squareX * UNIT_SQUARE_DIM, squareY * UNIT_SQUARE_DIM),
+            transformPoints(squareX * UNIT_SQUARE_DIM, (squareY + 1) * UNIT_SQUARE_DIM),
+            transformPoints(squareCenterX, squareCenterY)
+          ];
+        } else {
+          vertices = [
+            transformPoints((squareX + 1) * UNIT_SQUARE_DIM, squareY * UNIT_SQUARE_DIM),
+            transformPoints((squareX + 1) * UNIT_SQUARE_DIM, (squareY + 1) * UNIT_SQUARE_DIM),
+            transformPoints(squareCenterX, squareCenterY)
+          ];
+        }
+      } else {
+        // Mouse is closer to the top or bottom triangle
+        if (deltaY < 0) {
+          vertices = [
+            transformPoints(squareX * UNIT_SQUARE_DIM, squareY * UNIT_SQUARE_DIM),
+            transformPoints((squareX + 1) * UNIT_SQUARE_DIM, squareY * UNIT_SQUARE_DIM),
+            transformPoints(squareCenterX, squareCenterY)
+          ];
+        } else {
+          vertices = [
+            transformPoints(squareX * UNIT_SQUARE_DIM, (squareY + 1) * UNIT_SQUARE_DIM),
+            transformPoints((squareX + 1) * UNIT_SQUARE_DIM, (squareY + 1) * UNIT_SQUARE_DIM),
+            transformPoints(squareCenterX, squareCenterY)
+          ];
+        }
+      }
 
-    
+      // find the index of the triangle to be erased
+      var triangleIndex = 0;
 
+      for (var i = 0; i < vertexData.length; i += 9) {
+        if (vertexData[i] === vertices[0][0] && vertexData[i + 1] === vertices[0][1] && vertexData[i + 2] === vertices[0][2] &&
+          vertexData[i + 3] === vertices[1][0] && vertexData[i + 4] === vertices[1][1] && vertexData[i + 5] === vertices[1][2] &&
+          vertexData[i + 6] === vertices[2][0] && vertexData[i + 7] === vertices[2][1] && vertexData[i + 8] === vertices[2][2]) {
+            console.log(vertices);
+          triangleIndex = i;
+          break;
+        }
+      }
+
+      console.log(triangleIndex);
+      // remove the triangle from the vertexData and colorData arrays
+      vertexData.splice(triangleIndex, 9);
+      colorData.splice(triangleIndex, 12);
+
+      //update the vertex buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
+      
+      //update the color buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(colorData));
+
+      //draw the canvas
+      index -= 3;
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, index);
+      }
 
   });
 
@@ -218,14 +292,14 @@ window.onload = function init() {
 
   document.getElementById("LayerControls").onclick = function (event) {
     switch (event.target.index) {
-      case -0.5:
-        currentActiveZIndex = -0.5;
-        break;
       case 0:
+        currentActiveZIndex = -1;
+        break;
+      case 1:
         currentActiveZIndex = 0;
         break;
-      case 0.5:
-        currentActiveZIndex = 0.5;
+      case 2:
+        currentActiveZIndex = 1;
         break;
     }
   }
@@ -324,6 +398,114 @@ window.onload = function init() {
         }
 
     }
+
+
+const layerControls = document.getElementById("LayerControls");
+const moveLayerUpButton = document.getElementById("moveCurrentLayerUp");
+const moveLayerDownButton = document.getElementById("moveCurrentLayerDown");
+
+moveLayerUpButton.onclick = function() {
+    var selectedOption = layerControls.options[layerControls.selectedIndex];
+    var currentIndex = selectedOption.index;
+
+    if (currentIndex > 0) {
+        var z_current = selectedOption.value;
+        var z_above = layerControls.options[currentIndex - 1].value;
+        var z_third = currentIndex === 2 ?  -1 : 1;
+        console.log( "z value of" + z_current + " is being swapped with " + z_above + " and third is" + z_third);
+
+        // Swap the current option with the one above it
+        // also update values of options such that the z-index is swapped
+        // top layer has z-index of -1, middle layer has z-index of 0, bottom layer has z-index of 1
+        var previousOption = layerControls.options[currentIndex - 1];
+        var tempValue = selectedOption.value;
+        var tempText = selectedOption.text;
+
+        selectedOption.text = previousOption.text;
+
+        previousOption.text = tempText;
+
+        // Change the selected index to maintain user selection
+        layerControls.selectedIndex = currentIndex - 1;
+
+        console.log(layerControls.options);
+
+        // update vertexData and colorData such that the selected layer is on top and swap the z-index with the layer above it
+        for (var i = 0; i < vertexData.length; i += 3) {
+            var x = vertexData[i];
+            var y = vertexData[i + 1];
+            var z = vertexData[i + 2];
+            if (z == z_current) {
+                vertexData[i + 2] = z_above;
+            } else if (z == z_above) {
+                vertexData[i + 2] = z_current;
+            } else {
+                vertexData[i + 2] = z_third;
+            }
+        }
+        currentActiveZIndex = z_above;
+
+        //update the vertex buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
+
+        //draw the canvas
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLES, 0, index);
+    } else {
+        alert("Cannot move layer up, already at top");
+    }
+};
+
+moveLayerDownButton.onclick = function() {
+    const selectedOption = layerControls.options[layerControls.selectedIndex];
+    const currentIndex = selectedOption.index;
+
+    if (currentIndex < layerControls.length - 1) {
+        var z_current = selectedOption.value;
+        var z_below = layerControls.options[currentIndex + 1].value; 
+        var z_third = currentIndex === 0 ? 1 : -1;
+        // Swap the current option with the one below it
+        const nextOption = layerControls.options[currentIndex + 1];
+        const tempText = selectedOption.text;
+
+        selectedOption.text = nextOption.text;
+        nextOption.text = tempText;
+
+        // Change the selected index to maintain user selection
+        layerControls.selectedIndex = currentIndex + 1;
+        console.log(layerControls.options);
+
+
+        // update vertexData and colorData such that the selected layer is on top and swap the z-index with the layer above it
+
+        console.log( "z value of" + z_current + " is being swapped with " + z_below + " and third is" + z_third);
+
+        for (var i = 0; i < vertexData.length; i += 3) {
+            var x = vertexData[i];
+            var y = vertexData[i + 1];
+            var z = vertexData[i + 2];
+            if (z == z_current) {
+                vertexData[i + 2] = z_below;
+            } else if (z == z_below) {
+                vertexData[i + 2] = z_current;
+            } else {
+                vertexData[i + 2] = z_third;
+            }
+        }
+        currentActiveZIndex = z_below;
+
+        //update the vertex buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
+
+        //draw the canvas
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLES, 0, index);
+    } else {
+        alert("Cannot move layer down, already at bottom");
+    }
+};
 
 
   gl.viewport(0, 0, canvas.width, canvas.height);
