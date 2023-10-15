@@ -3,9 +3,9 @@
 2 done
 3 done
 4 done 
-5 eraser (also keep in mind z-index) (does not find a match for the triangle to be erased)
+5 done
 6 done
-7 rectangular selection (also keep in mind z-index)
+7 done
 8 rectangular selection copy (also keep in mind z-index)
 9  done
 10 done
@@ -39,6 +39,7 @@ var zoomMode = false;
 var rectangularSelectMode = false;
 var rectangularSelectCopyMode = false;
 var rectangularSelectTransitionMode = false;
+var rectangularSelectCopyTransitionMode = false;
 var rectangularSelectBeginnngPoint = null;
 var rectangularSelectEndingPoint = null;
 
@@ -75,6 +76,15 @@ window.onload = function init() {
       rectangularSelectBeginnngPoint = transformPoints(event.clientX, event.clientY);
     }
   });
+  
+  document.getElementById("rectangularSelectCopy").onclick = function (event) {
+    rectangularSelectCopyMode = !rectangularSelectCopyMode;
+    if (rectangularSelectCopyMode) {
+      document.getElementById("rectangularSelectCopy").innerHTML = "Rectangular Select Copy is Active";
+    } else {
+      document.getElementById("rectangularSelectCopy").innerHTML = "Rectangular Select Copy is Inactive";
+    }
+  }
 
 document.addEventListener('keydown', handleKeyDown);
 document.addEventListener('keyup', handleKeyUp);
@@ -120,21 +130,21 @@ function finishRectangularSelect() {
       var rectStartIndexVertex = vertexData.length - 18; // Index of the first vertex of the rectangular area
       var rectStartIndexColor = colorData.length - 24; // Index of the first color of the rectangular area
 
-      for (var i = 0; i < vertexData.length - rectStartIndexVertex; i++) {
+
+      for (var i = 0; i < rectStartIndexVertex; i++) {
         newVertexData.push(vertexData[i]);
       }
 
-      for (var i = 0; i < colorData.length - rectStartIndexColor; i++) {
+      for (var i = 0; i < rectStartIndexColor; i++) {
         newColorData.push(colorData[i]);
       }
 
       vertexData = newVertexData;
       colorData = newColorData;
-      index -= 6;
+      index = vertexData.length / 3;
 
       // Draw the canvas
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      console.log(index, (vertexData.length / colorData.length));
       gl.drawArrays(gl.TRIANGLES, 0, index);
 
 
@@ -183,11 +193,10 @@ function moveSelectedTriangles() {
 
       // Update the vertex buffer
       gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexData), gl.STATIC_DRAW);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
 
       // Draw the canvas
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      console.log(index, (vertexData.length / colorData.length));
       gl.drawArrays(gl.TRIANGLES, 0, vertexData.length / 3);
 
   }
@@ -234,7 +243,7 @@ function moveSelectedTriangles() {
 
       gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 12 * index, flatten(vertices));
-      vertexData.push(...flatten(vertices));
+      vertexData.push(...(vertices.flat()));
 
       //update the color buffer
       // colors are vec4 objects
@@ -245,15 +254,14 @@ function moveSelectedTriangles() {
 
       gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 16 * index, flatten(newColors));
-      colorData.push(...flatten(newColors));
+      colorData.push(...(newColors.flat()));
 
 
       //draw the canvas
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      index += 6;
-      console.log(index, (colorData.length / vertexData.length));
-      gl.drawArrays(gl.LINES, index, index);
+      index = vertexData.length / 3;
+      gl.drawArrays(gl.TRIANGLES, 0, index);
       rectangularSelectMode = false;
       rectangularSelectTransitionMode = true;
     }
@@ -302,13 +310,12 @@ function moveSelectedTriangles() {
 
       //draw the canvas
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      console.log(index, (vertexData.length / colorData.length));
       gl.drawArrays(gl.TRIANGLES, 0, index);
 
     }
 
     else if (!eraseMode && redraw && !zoomMode) {
-      console.log("drawing");
+      console.log({vertexData, colorData});
       var squareX = Math.floor(event.clientX / UNIT_SQUARE_DIM);
       var squareY = Math.floor(event.clientY / UNIT_SQUARE_DIM);
       // Calculate the center of the square unit
@@ -371,11 +378,10 @@ function moveSelectedTriangles() {
 
       //draw the canvas
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      index += 3;
+      index = vertexData.length / 3;
       undoCounter += 3;
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      console.log(index, (vertexData.length / colorData.length));
-      gl.drawArrays(gl.TRIANGLES, 0, index + 3);
+      gl.drawArrays(gl.TRIANGLES, 0, index);
     }
 
     else if (eraseMode && redraw && !zoomMode) {
@@ -563,7 +569,7 @@ function moveSelectedTriangles() {
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(newVertices));
         gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(newColors));
-        console.log(index, (vertexData.length / colorData.length));
+
         gl.drawArrays(gl.TRIANGLES, 0, index);
         vertexData.push(...newVertices);
         colorData.push(...newColors);
@@ -579,7 +585,7 @@ function moveSelectedTriangles() {
            redoIndexArray.push(decrease_index);
            index -= decrease_index;
            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-           console.log(index, (vertexData.length / colorData.length));
+    
            gl.drawArrays(gl.TRIANGLES, 0, index);
        } else {
            alert("Nothing to undo");
@@ -592,7 +598,7 @@ function moveSelectedTriangles() {
             undoIndexArray.push(increase_index);
             index += increase_index;
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            console.log(index, (vertexData.length / colorData.length));
+    
             gl.drawArrays(gl.TRIANGLES, 0, index);
          } else {
             alert("Nothing to redo");
@@ -650,7 +656,7 @@ moveLayerUpButton.onclick = function() {
 
         //draw the canvas
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        console.log(index, (vertexData.length / colorData.length));
+
         gl.drawArrays(gl.TRIANGLES, 0, index);
     } else {
         alert("Cannot move layer up, already at top");
@@ -699,7 +705,7 @@ moveLayerDownButton.onclick = function() {
 
         //draw the canvas
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        console.log(index, (vertexData.length / colorData.length));
+
         gl.drawArrays(gl.TRIANGLES, 0, index);
     } else {
         alert("Cannot move layer down, already at bottom");
