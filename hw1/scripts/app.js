@@ -1,19 +1,7 @@
 /*
-1 done
-2 done
-3 done
-4 done 
-5 done
-6 done
-7 done
-8 rectangular selection copy (also keep in mind z-index)
-9  done
-10 done
+* eraser düzelicek (z index)
 */
-
 /* 
-rectangular select z index
-rectangular slect copy 
 */
 var canvas;
 var gl;
@@ -32,6 +20,7 @@ var vertexData = [];
 var colorData = [];
 var rectangularSelectTrianglesIndex = [];
 var currentActiveZIndex = -1;
+var rectangularCopyGrayAreaTransitionVector = vec2(0, 0);
 
 var redraw = false;
 var eraseMode = false;
@@ -74,6 +63,10 @@ window.onload = function init() {
       redraw = false;
       // get the coordinates of the mouse click
       rectangularSelectBeginnngPoint = transformPoints(event.clientX, event.clientY);
+    } else if (rectangularSelectCopyMode) {
+      redraw = false;
+      // get the coordinates of the mouse click
+      rectangularSelectBeginnngPoint = transformPoints(event.clientX, event.clientY);
     }
   });
   
@@ -95,7 +88,8 @@ var keys = {
     'a': false,
     's': false,
     'd': false,
-    'c': false
+    'c': false,
+    'p': false,
 };
 
 
@@ -106,10 +100,84 @@ function handleKeyDown(event) {
             moveSelectedTriangles();
         }
         else if (keys['c']) {
+          console.log(rectangularSelectCopyMode, rectangularSelectMode);
+          if (rectangularSelectMode || rectangularSelectCopyMode) {
             finishRectangularSelect();
+          } 
+        } 
+        else if (keys['p']) {
+          pasteSelectedTriangles();
         }
     } 
 }
+
+function pasteSelectedTriangles() {
+  if (rectangularSelectCopyMode && keys['p']) {
+    var newVerticesToPaste = [];
+
+    for (var i = 0; i < rectangularSelectTrianglesIndex.length; i++) {
+      var triangleIndex = rectangularSelectTrianglesIndex[i];
+      for (var j = 0; j < 9; j++) {
+        newVerticesToPaste.push(vertexData[triangleIndex + j]);
+      }
+    }
+
+    //also get the color data for new vertices to paste
+    var newColorsToPaste = [];
+    for (var i = 0; i < rectangularSelectTrianglesIndex.length; i++) {
+      var triangleIndex = rectangularSelectTrianglesIndex[i] * 4 / 3;
+      for (var j = 0; j < 12; j++) {
+        newColorsToPaste.push(colorData[triangleIndex + j]);
+      }
+    }
+
+    //translate the new vertices according to rectangularCopyGrayAreaTransitionVector
+    for (var i = 0; i < newVerticesToPaste.length; i += 3) {
+      newVerticesToPaste[i] += rectangularCopyGrayAreaTransitionVector[0];
+      newVerticesToPaste[i + 1] += rectangularCopyGrayAreaTransitionVector[1];
+    }
+
+    var tempArrayForGrayAreaVertices = [];
+    var tempArrayForGrayAreaColors = [];
+
+    //remove the gray area from the vertex and color buffers
+    var rectStartIndexVertex = vertexData.length - 18; // Index of the first vertex of the rectangular area
+    var rectStartIndexColor = colorData.length - 24; // Index of the first color of the rectangular area
+
+    for (var i = rectStartIndexVertex; i < vertexData.length; i++) {
+      tempArrayForGrayAreaVertices.push(vertexData[i]);
+    }
+
+    for (var i = rectStartIndexColor; i < colorData.length; i++) {
+      tempArrayForGrayAreaColors.push(colorData[i]);
+    }
+
+    vertexData = vertexData.slice(0, rectStartIndexVertex);
+    colorData = colorData.slice(0, rectStartIndexColor);
+      
+
+    vertexData.push(...newVerticesToPaste);
+    colorData.push(...newColorsToPaste);
+
+    vertexData.push(...tempArrayForGrayAreaVertices);
+    colorData.push(...tempArrayForGrayAreaColors);
+
+    //update the vertex buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
+
+    //update the color buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(colorData));
+
+    //draw the canvas
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    index = vertexData.length / 3;
+    gl.drawArrays(gl.TRIANGLES, 0, index);
+
+  }
+}
+
 
 function handleKeyUp(event) {
     if (event.key in keys) {
@@ -118,6 +186,7 @@ function handleKeyUp(event) {
 }
 
 function finishRectangularSelect() {
+  console.log(rectangularSelectCopyTransitionMode);
   if (rectangularSelectTransitionMode && keys['c']) {
       // Reset the rectangular selection mode
       rectangularSelectMode = false;
@@ -143,22 +212,72 @@ function finishRectangularSelect() {
       colorData = newColorData;
       index = vertexData.length / 3;
 
+      // bind the vertex buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
+
+      // bind the color buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(colorData));
+
       // Draw the canvas
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, index);
-
 
       // Reset the selected triangles
       rectangularSelectTrianglesIndex = [];
       document.getElementById("rectangularSelect").innerHTML = "Rectangular Select is Inactive";
 
+  } else if (rectangularSelectCopyTransitionMode && keys['c']) {
+          // Reset the rectangular selection mode
+          rectangularSelectCopyMode = false;
+          rectangularSelectCopyTransitionMode = false;
+    
+          var newVertexData = [];
+          var newColorData = [];
+    
+          // Remove the gray rectangle from the vertex and color buffers
+          var rectStartIndexVertex = vertexData.length - 18; // Index of the first vertex of the rectangular area
+          var rectStartIndexColor = colorData.length - 24; // Index of the first color of the rectangular area
+    
+    
+          for (var i = 0; i < rectStartIndexVertex; i++) {
+            newVertexData.push(vertexData[i]);
+          }
+    
+          for (var i = 0; i < rectStartIndexColor; i++) {
+            newColorData.push(colorData[i]);
+          }
+    
+          vertexData = newVertexData;
+          colorData = newColorData;
+          index = vertexData.length / 3;
+
+          rectangularCopyGrayAreaTransitionVector = vec2(0, 0);
+
+          // bind the vertex buffer
+          gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
+
+          // bind the color buffer
+          gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(colorData));
+    
+          // Draw the canvas
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          gl.drawArrays(gl.TRIANGLES, 0, index);
+    
+    
+          // Reset the selected triangles
+          rectangularSelectTrianglesIndex = [];
+          document.getElementById("rectangularSelectCopy").innerHTML = "Rectangular Select Copy is Inactive";
   }
 }
 
 
 
 function moveSelectedTriangles() {
-  if (rectangularSelectTrianglesIndex.length > 0) {
+  if (rectangularSelectTrianglesIndex.length > 0 && rectangularSelectTransitionMode) {
       var deltaX = 0;
       var deltaY = 0;
 
@@ -199,7 +318,42 @@ function moveSelectedTriangles() {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, vertexData.length / 3);
 
-  }
+  } else if (rectangularSelectTrianglesIndex.length > 0 && rectangularSelectCopyTransitionMode) {
+    deltaX = 0;
+    deltaY = 0;
+
+    if (keys['w']) {
+        deltaY += 0.1;
+    }
+    if (keys['a']) {
+        deltaX -= 0.1;
+    }
+    if (keys['s']) {
+        deltaY -= 0.1;
+    }
+    if (keys['d']) {
+        deltaX += 0.1;
+    }
+
+    rectangularCopyGrayAreaTransitionVector[0] += deltaX;
+    rectangularCopyGrayAreaTransitionVector[1] += deltaY;
+
+      // Update positions of the gray rectangle
+      var rectStartIndex = vertexData.length - 18; // Index of the first vertex of the rectangular area
+      for (var i = 0; i < 6; i++) {
+          vertexData[rectStartIndex + i * 3] += deltaX;
+          vertexData[rectStartIndex + i * 3 + 1] += deltaY;
+      }
+
+      // Update the vertex buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
+
+      // Draw the canvas
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, vertexData.length / 3);
+    }
+
 }
 
 
@@ -262,8 +416,68 @@ function moveSelectedTriangles() {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       index = vertexData.length / 3;
       gl.drawArrays(gl.TRIANGLES, 0, index);
-      rectangularSelectMode = false;
+      rectangularSelectMode = true;
       rectangularSelectTransitionMode = true;
+    } else if (rectangularSelectCopyMode) {
+        
+      // get the coordinates of the mouse release
+      rectangularSelectEndingPoint = transformPoints(event.clientX, event.clientY);
+      // find the min and max x and y values
+      var minX = Math.min(rectangularSelectBeginnngPoint[0], rectangularSelectEndingPoint[0]);
+      var maxX = Math.max(rectangularSelectBeginnngPoint[0], rectangularSelectEndingPoint[0]);
+      var minY = Math.min(rectangularSelectBeginnngPoint[1], rectangularSelectEndingPoint[1]);
+      var maxY = Math.max(rectangularSelectBeginnngPoint[1], rectangularSelectEndingPoint[1]);
+
+      //find all triangles that are inside the rectangle
+      rectangularSelectTrianglesIndex = [];
+      for (var i = 0; i < vertexData.length; i += 9) {
+        var vertex1 = vertexData.slice(i, i + 3);
+        var vertex2 = vertexData.slice(i + 3, i + 6);
+        var vertex3 = vertexData.slice(i + 6, i + 9);
+        if (vertex1[0] >= minX && vertex1[0] <= maxX && vertex1[1] >= minY && vertex1[1] <= maxY &&
+          vertex2[0] >= minX && vertex2[0] <= maxX && vertex2[1] >= minY && vertex2[1] <= maxY &&
+          vertex3[0] >= minX && vertex3[0] <= maxX && vertex3[1] >= minY && vertex3[1] <= maxY && 
+          vertex1[2] == Number(currentActiveZIndex) && vertex2[2] == Number(currentActiveZIndex) && vertex3[2] == Number(currentActiveZIndex)) {
+          rectangularSelectTrianglesIndex.push(i);
+        }
+      }
+
+      // draw a gray rectangle on the canvas using 2 triangles
+      //update the vertex buffer
+      // vertices are vec3 objects
+
+      var vertices = [
+        vec3(minX, minY, 1),
+        vec3(minX, maxY, 1),
+        vec3(maxX, maxY, 1),
+        vec3(maxX, minY, 1),
+        vec3(minX, minY, 1),
+        vec3(maxX, maxY, 1)
+      ];
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 12 * index, flatten(vertices));
+      vertexData.push(...(vertices.flat()));
+
+      //update the color buffer
+      // colors are vec4 objects
+      var newColors = [];
+      for (var i = 0; i < 6; i++) {
+        newColors.push(vec4(0, 0, 0, 0.2));
+      }
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 16 * index, flatten(newColors));
+      colorData.push(...(newColors.flat()));
+
+
+      //draw the canvas
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      index = vertexData.length / 3;
+      gl.drawArrays(gl.TRIANGLES, 0, index);
+      rectangularSelectCopyMode = true;
+      rectangularSelectCopyTransitionMode = true;
     }
 
     redraw = false;
@@ -358,7 +572,7 @@ function moveSelectedTriangles() {
           ];
         }
       }
-
+      undoCounter = undoCounter + 3;
       
       //update the vertex buffer
       // vertices are vec4 objects
@@ -378,8 +592,7 @@ function moveSelectedTriangles() {
 
       //draw the canvas
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      index = vertexData.length / 3;
-      undoCounter += 3;
+      index += 3;
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, index);
     }
@@ -580,31 +793,28 @@ function moveSelectedTriangles() {
   };
 
    document.getElementById("undo").onclick = function (event) {
-       if (undoIndexArray.length > 0) {
-           var decrease_index = undoIndexArray.pop();
-           redoIndexArray.push(decrease_index);
-           index -= decrease_index;
-           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    
-           gl.drawArrays(gl.TRIANGLES, 0, index);
-       } else {
-           alert("Nothing to undo");
-       }
+    if (undoIndexArray.length > 0) {
+      var decrease_index = undoIndexArray.pop();
+      redoIndexArray.push(decrease_index);
+      index -= decrease_index;
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, index);
+    } else {
+      alert("Nothing to undo");
+    }
    };
 
    document.getElementById("redo").onclick = function (event) {
-       if (redoIndexArray.length > 0) {
-            var increase_index = redoIndexArray.pop();
-            undoIndexArray.push(increase_index);
-            index += increase_index;
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    
-            gl.drawArrays(gl.TRIANGLES, 0, index);
-         } else {
-            alert("Nothing to redo");
-        }
-
-    }
+    if (redoIndexArray.length > 0) {
+      var increase_index = redoIndexArray.pop();
+      undoIndexArray.push(increase_index);
+      index += increase_index;
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, index);
+   } else {
+      alert("Nothing to redo");
+   } 
+  }
 
 
 const layerControls = document.getElementById("LayerControls");
