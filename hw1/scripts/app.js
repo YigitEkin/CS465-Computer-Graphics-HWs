@@ -33,6 +33,8 @@ var eraseMode = false;
 var zoomMode = false;
 var rectangularSelectMode = false;
 var rectangularSelectCopyMode = false;
+var rectangularSelectBeginnngPoint = null;
+var rectangularSelectEndingPoint = null;
 
 
 var colors = [
@@ -64,11 +66,57 @@ window.onload = function init() {
     if (rectangularSelectMode) {
       redraw = false;
       // get the coordinates of the mouse click
-      var rectangularSelectBeginnngPoint = vec2(event.clientX, event.clientY);
+      rectangularSelectBeginnngPoint = transformPoints(event.clientX, event.clientY);
     }
   });
 
   canvas.addEventListener("mouseup", function (event) {
+    if (rectangularSelectMode) {
+      
+      // get the coordinates of the mouse release
+      rectangularSelectEndingPoint = transformPoints(event.clientX, event.clientY);
+      // find the min and max x and y values
+      var minX = Math.min(rectangularSelectBeginnngPoint[0], rectangularSelectEndingPoint[0]);
+      var maxX = Math.max(rectangularSelectBeginnngPoint[0], rectangularSelectEndingPoint[0]);
+      var minY = Math.min(rectangularSelectBeginnngPoint[1], rectangularSelectEndingPoint[1]);
+      var maxY = Math.max(rectangularSelectBeginnngPoint[1], rectangularSelectEndingPoint[1]);
+
+      // draw a gray rectangle on the canvas using 2 triangles
+      //update the vertex buffer
+      // vertices are vec3 objects
+
+      var vertices = [
+        vec3(minX, minY, currentActiveZIndex),
+        vec3(minX, maxY, currentActiveZIndex),
+        vec3(maxX, maxY, currentActiveZIndex),
+        vec3(maxX, minY, currentActiveZIndex),
+        vec3(minX, minY, currentActiveZIndex),
+        vec3(maxX, maxY, currentActiveZIndex)
+      ];
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 12 * index, flatten(vertices));
+      vertexData.push(...flatten(vertices));
+
+      //update the color buffer
+      // colors are vec4 objects
+      var newColors = [];
+      for (var i = 0; i < 2; i++) {
+        newColors.push(vec4(0.5, 0.5, 0.5, 1.0));
+      }
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 16 * index, flatten(newColors));
+      colorData.push(...flatten(newColors));
+
+      //draw the canvas
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, index + 6);
+      rectangularSelectMode = false;
+      
+    }
+
     redraw = false;
     if (undoIndexArray.length == MAX_NUMBER_OF_UNDO) {
       undoIndexArray.shift();
@@ -117,7 +165,7 @@ window.onload = function init() {
 
     }
 
-    if (!eraseMode && redraw && !zoomMode) {
+    else if (!eraseMode && redraw && !zoomMode) {
       var squareX = Math.floor(event.clientX / UNIT_SQUARE_DIM);
       var squareY = Math.floor(event.clientY / UNIT_SQUARE_DIM);
       // Calculate the center of the square unit
@@ -166,7 +214,7 @@ window.onload = function init() {
       // vertices are vec4 objects
       gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 12 * index, flatten(vertices));
-      vertexData.push(...flatten(vertices));
+      vertexData.push(...vertices.flat());
 
       //update the color buffer
       // colors are vec4 objects
@@ -176,7 +224,7 @@ window.onload = function init() {
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 16 * index, flatten(newColors));
-      colorData.push(...flatten(newColors));
+      colorData.push(...newColors.flat());
 
       //draw the canvas
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -186,7 +234,7 @@ window.onload = function init() {
       gl.drawArrays(gl.TRIANGLES, 0, index + 3);
     }
 
-    if (eraseMode && redraw && !zoomMode) {
+    else if (eraseMode && redraw && !zoomMode) {
       var squareX = Math.floor(event.clientX / UNIT_SQUARE_DIM);
       var squareY = Math.floor(event.clientY / UNIT_SQUARE_DIM);
       // Calculate the center of the square unit
@@ -229,39 +277,37 @@ window.onload = function init() {
           ];
         }
       }
-
-      // find the index of the triangle to be erased
-      var triangleIndex = 0;
-
+      //remove vertices all vertices elements from the vertexData array
+      var newVertexData = [];
+      var newColorData = [];
+      var found = false;
+      var k = 0;
       for (var i = 0; i < vertexData.length; i += 9) {
-        if (vertexData[i] === vertices[0][0] && vertexData[i + 1] === vertices[0][1] && vertexData[i + 2] === vertices[0][2] &&
-          vertexData[i + 3] === vertices[1][0] && vertexData[i + 4] === vertices[1][1] && vertexData[i + 5] === vertices[1][2] &&
-          vertexData[i + 6] === vertices[2][0] && vertexData[i + 7] === vertices[2][1] && vertexData[i + 8] === vertices[2][2]) {
-            console.log(vertices);
-          triangleIndex = i;
-          break;
+        var vertex = vertexData.slice(i, i + 9);
+        var color = colorData.slice(k, k + 12);
+        // check if vertices exists in the vertex buffer and if exists don't add it to the new vertex buffer
+        if (vertices[0][0] == vertex[0] && vertices[0][1] == vertex[1] && vertices[0][2] == vertex[2] &&
+          vertices[1][0] == vertex[3] && vertices[1][1] == vertex[4] && vertices[1][2] == vertex[5] &&
+          vertices[2][0] == vertex[6] && vertices[2][1] == vertex[7] && vertices[2][2] == vertex[8]) {
+          found = true;
+          index -= 3;
+        } else {
+          newVertexData.push(...vertex);
+          newColorData.push(...color);
         }
+        k += 12;
       }
-
-      console.log(triangleIndex);
-      // remove the triangle from the vertexData and colorData arrays
-      vertexData.splice(triangleIndex, 9);
-      colorData.splice(triangleIndex, 12);
-
-      //update the vertex buffer
-      gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
-      
-      //update the color buffer
-      gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(colorData));
-
-      //draw the canvas
-      index -= 3;
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      gl.drawArrays(gl.TRIANGLES, 0, index);
+      if (found) {
+        console.log("updating buffer");
+        gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(newVertexData));
+        vertexData = newVertexData;
+        //remove vertices from the color buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(newColorData));
+        colorData = newColorData;
       }
-
+    }
   });
 
   document.getElementById("ColorPicker").onclick = function (event) {
@@ -328,6 +374,15 @@ window.onload = function init() {
     undoCounter = 0;
     redoIndexArray = [];
   };
+
+  document.getElementById("rectangularSelect").onclick = function (event) {
+    rectangularSelectMode = !rectangularSelectMode;
+    if (rectangularSelectMode) {
+      document.getElementById("rectangularSelect").innerHTML = "Rectangular Select is Active";
+    } else {
+      document.getElementById("rectangularSelect").innerHTML = "Rectangular Select is Inactive";
+    }
+  }
 
   document.getElementById("save").onclick = function (event) {
     // Save and load options for the current canvas. It is enough to keep the vertex, index, and color information; 
