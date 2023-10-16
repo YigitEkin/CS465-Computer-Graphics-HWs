@@ -62,11 +62,11 @@ window.onload = function init() {
     if (rectangularSelectMode) {
       redraw = false;
       // get the coordinates of the mouse click
-      rectangularSelectBeginnngPoint = transformPoints(event.clientX, event.clientY);
+      rectangularSelectBeginnngPoint = transformPoints(event.layerX, event.layerY);
     } else if (rectangularSelectCopyMode) {
       redraw = false;
       // get the coordinates of the mouse click
-      rectangularSelectBeginnngPoint = transformPoints(event.clientX, event.clientY);
+      rectangularSelectBeginnngPoint = transformPoints(event.layerX, event.layerY);
     }
   });
   
@@ -117,8 +117,9 @@ function pasteSelectedTriangles() {
 
     for (var i = 0; i < rectangularSelectTrianglesIndex.length; i++) {
       var triangleIndex = rectangularSelectTrianglesIndex[i];
-      for (var j = 0; j < 9; j++) {
-        newVerticesToPaste.push(vertexData[triangleIndex + j]);
+      for (var j = 0; j < 9; j += 3) {
+        var temp = vec3(vertexData[triangleIndex + j], vertexData[triangleIndex + j + 1], vertexData[triangleIndex + j + 2]);
+        newVerticesToPaste.push(temp);
       }
     }
 
@@ -126,15 +127,16 @@ function pasteSelectedTriangles() {
     var newColorsToPaste = [];
     for (var i = 0; i < rectangularSelectTrianglesIndex.length; i++) {
       var triangleIndex = rectangularSelectTrianglesIndex[i] * 4 / 3;
-      for (var j = 0; j < 12; j++) {
-        newColorsToPaste.push(colorData[triangleIndex + j]);
+      for (var j = 0; j < 12; j+=4) {
+        var temp = vec4(colorData[triangleIndex + j], colorData[triangleIndex + j + 1], colorData[triangleIndex + j + 2], colorData[triangleIndex + j + 3]);
+        newColorsToPaste.push(temp);
       }
     }
 
     //translate the new vertices according to rectangularCopyGrayAreaTransitionVector
-    for (var i = 0; i < newVerticesToPaste.length; i += 3) {
-      newVerticesToPaste[i] += rectangularCopyGrayAreaTransitionVector[0];
-      newVerticesToPaste[i + 1] += rectangularCopyGrayAreaTransitionVector[1];
+    for (var i = 0; i < newVerticesToPaste.length; i++ ) {
+      newVerticesToPaste[i][0] += rectangularCopyGrayAreaTransitionVector[0];
+      newVerticesToPaste[i][1] += rectangularCopyGrayAreaTransitionVector[1];
     }
 
     var tempArrayForGrayAreaVertices = [];
@@ -156,11 +158,11 @@ function pasteSelectedTriangles() {
     colorData = colorData.slice(0, rectStartIndexColor);
       
 
-    vertexData.push(...newVerticesToPaste);
-    colorData.push(...newColorsToPaste);
+    vertexData.push(...(newVerticesToPaste.flat()));
+    colorData.push(...(newColorsToPaste.flat()));
 
-    vertexData.push(...tempArrayForGrayAreaVertices);
-    colorData.push(...tempArrayForGrayAreaColors);
+    vertexData.push(...(tempArrayForGrayAreaVertices.flat()));
+    colorData.push(...(tempArrayForGrayAreaColors.flat()));
 
     //update the vertex buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
@@ -361,7 +363,7 @@ function moveSelectedTriangles() {
     if (rectangularSelectMode) {
       
       // get the coordinates of the mouse release
-      rectangularSelectEndingPoint = transformPoints(event.clientX, event.clientY);
+      rectangularSelectEndingPoint = transformPoints(event.layerX, event.layerY);
       // find the min and max x and y values
       var minX = Math.min(rectangularSelectBeginnngPoint[0], rectangularSelectEndingPoint[0]);
       var maxX = Math.max(rectangularSelectBeginnngPoint[0], rectangularSelectEndingPoint[0]);
@@ -421,7 +423,7 @@ function moveSelectedTriangles() {
     } else if (rectangularSelectCopyMode) {
         
       // get the coordinates of the mouse release
-      rectangularSelectEndingPoint = transformPoints(event.clientX, event.clientY);
+      rectangularSelectEndingPoint = transformPoints(event.layerX, event.layerY);
       // find the min and max x and y values
       var minX = Math.min(rectangularSelectBeginnngPoint[0], rectangularSelectEndingPoint[0]);
       var maxX = Math.max(rectangularSelectBeginnngPoint[0], rectangularSelectEndingPoint[0]);
@@ -498,7 +500,7 @@ function moveSelectedTriangles() {
   }
   
   canvas.addEventListener("mousemove", function (event) {
-    if (zoomMode && !eraseMode && redraw) {
+    if (zoomMode && !eraseMode && redraw && !rectangularSelectMode && !rectangularSelectCopyMode) {
       console.log("zooming");
       // find a transition vector for moving objects on the canvas
       var deltaX = event.movementX;
@@ -528,17 +530,17 @@ function moveSelectedTriangles() {
 
     }
 
-    else if (!eraseMode && redraw && !zoomMode) {
+    else if (!eraseMode && redraw && !zoomMode && !rectangularSelectMode && !rectangularSelectCopyMode) {
       console.log({vertexData, colorData});
-      var squareX = Math.floor(event.clientX / UNIT_SQUARE_DIM);
-      var squareY = Math.floor(event.clientY / UNIT_SQUARE_DIM);
+      var squareX = Math.floor(event.layerX / UNIT_SQUARE_DIM);
+      var squareY = Math.floor(event.layerY / UNIT_SQUARE_DIM);
       // Calculate the center of the square unit
       var squareCenterX = squareX * UNIT_SQUARE_DIM + (UNIT_SQUARE_DIM / 2);
       var squareCenterY = squareY * UNIT_SQUARE_DIM + (UNIT_SQUARE_DIM / 2);
 
       // Calculate the relative distance from the mouse to the square center
-      var deltaX = event.clientX - squareCenterX;
-      var deltaY = event.clientY - squareCenterY;
+      var deltaX = event.layerX - squareCenterX;
+      var deltaY = event.layerY - squareCenterY;
       // Determine which triangle within the square the mouse is on
       let vertices = null;
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
@@ -599,15 +601,15 @@ function moveSelectedTriangles() {
 
     else if (eraseMode && redraw && !zoomMode) {
       console.log("erasing");
-      var squareX = Math.floor(event.clientX / UNIT_SQUARE_DIM);
-      var squareY = Math.floor(event.clientY / UNIT_SQUARE_DIM);
+      var squareX = Math.floor(event.layerX / UNIT_SQUARE_DIM);
+      var squareY = Math.floor(event.layerY / UNIT_SQUARE_DIM);
       // Calculate the center of the square unit
       var squareCenterX = squareX * UNIT_SQUARE_DIM + (UNIT_SQUARE_DIM / 2);
       var squareCenterY = squareY * UNIT_SQUARE_DIM + (UNIT_SQUARE_DIM / 2);
 
       // Calculate the relative distance from the mouse to the square center
-      var deltaX = event.clientX - squareCenterX;
-      var deltaY = event.clientY - squareCenterY;
+      var deltaX = event.layerX - squareCenterX;
+      var deltaY = event.layerY - squareCenterY;
       // Determine which triangle within the square the mouse is on
       let vertices = null;
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
@@ -649,6 +651,7 @@ function moveSelectedTriangles() {
       for (var i = 0; i < vertexData.length; i += 9) {
         var vertex = vertexData.slice(i, i + 9);
         var color = colorData.slice(k, k + 12);
+
         // check if vertices exists in the vertex buffer and if exists don't add it to the new vertex buffer
         if (vertices[0][0] == vertex[0] && vertices[0][1] == vertex[1] && vertices[0][2] == vertex[2] &&
           vertices[1][0] == vertex[3] && vertices[1][1] == vertex[4] && vertices[1][2] == vertex[5] &&
@@ -726,16 +729,8 @@ function moveSelectedTriangles() {
     }
     scaleLoc = gl.getUniformLocation(program, "scale");
     gl.uniform1f(scaleLoc, scale);
-    document.getElementById("zoomScale").innerHTML = scale.toFixed(1);
+    document.getElementById("zoomScale").innerHTML = "Zoom Scale: " + scale.toFixed(1);
     zoomMode = scale != 1;
-  };
-
-  document.getElementById("ClearButton").onclick = function (event) {
-    index = 0;
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    undoIndexArray = [];
-    undoCounter = 0;
-    redoIndexArray = [];
   };
 
   document.getElementById("rectangularSelect").onclick = function (event) {
@@ -771,7 +766,6 @@ function moveSelectedTriangles() {
     // You should clear the current canvas before loading the saved data.
     var file = event.target.files[0];
     var reader = new FileReader();
-    document.getElementById("ClearButton").click();
     reader.onload = function (event) {
         var saveData = JSON.parse(event.target.result);
         index = saveData.index / 8;

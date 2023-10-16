@@ -7,6 +7,205 @@
     canvas {
       border: 1px solid black;
     }
+    #main-container {
+      width: 600px;
+      margin: 0 auto;
+    }
+    #title {
+      text-align: center;
+      font-family:Verdana, Geneva, Tahoma, sans-serif
+    }
+
+    /* Styles for ZoomControls dropdown and zoom scale display */
+#ZoomControls, #zoomScale {
+    font-size: 16px;
+    padding: 10px;
+    border: 2px solid #28a745; /* Green border color */
+    border-radius: 5px;
+    background-color: white;
+    color: #28a745; /* Green text color */
+    margin-bottom: 10px;
+}
+
+#ZoomControls option {
+    background-color: white;
+    color: black;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+#ZoomControls option:checked {
+    background-color: #28a745; /* Green background for selected option */
+    color: white;
+}
+
+/* Styles for LayerControls dropdown and accompanying text */
+#LayerControls, p {
+    font-size: 16px;
+    padding: 10px;
+    border: 2px solid #007bff; /* Blue border color */
+    border-radius: 5px;
+    background-color: white;
+    color: #007bff; /* Blue text color */
+    margin-bottom: 10px;
+}
+
+#LayerControls option {
+    background-color: white;
+    color: black;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+#LayerControls option:checked {
+    background-color: #007bff; /* Blue background for selected option */
+    color: white;
+}
+
+
+    /* Styles for Undo, Redo, Save, Load buttons */
+#undo,
+#redo,
+#save,
+#erase {
+    margin-right: 10px;
+    font-size: 16px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+/* Styles for Rectangular Select and Rectangular Select Copy buttons */
+#rectangularSelect,
+#rectangularSelectCopy {
+    margin-top: 10px;
+    font-size: 16px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+/* Bootstrap styles for buttons */
+#undo {
+    background-color: #6c757d;
+    color: white;
+}
+
+#redo {
+    background-color: #6c757d;
+    color: white;
+}
+
+#save {
+    background-color: #28a745;
+    color: white;
+}
+
+#erase {
+    background-color: #dc3545;
+    color: white;
+}
+
+#rectangularSelect,
+#rectangularSelectCopy {
+    background-color: #007bff;
+    color: white;
+    margin-right: 20px;
+}
+
+#moveCurrentLayerUp {
+    margin-top: 10px;
+    font-size: 16px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+    background-color: #28a745;
+    color: white;
+}
+
+#moveCurrentLayerDown {
+    margin-top: 10px;
+    font-size: 16px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Hover effect */
+#undo:hover,
+#redo:hover,
+#save:hover,
+#rectangularSelect:hover,
+#rectangularSelectCopy:hover,
+#erase:hover {
+    transform: scale(1.1);
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Active effect */
+#undo:active,
+#redo:active,
+#save:active,
+#rectangularSelect:active,
+#rectangularSelectCopy:active,
+#erase:active {
+    transform: scale(1);
+    box-shadow: none;
+}
+
+/* Styles for Load button */
+#load {
+    margin-right: 10px;
+    font-size: 16px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #ffc107;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+#load:hover {
+    background-color: #ffca2b;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+#load:active {
+    background-color: #ffc107;
+    box-shadow: none;
+}
+
+/* Styles for ColorPicker dropdown */
+#ColorPicker {
+    width: 120px;
+    font-size: 16px;
+    padding: 10px;
+    border: 2px solid #007bff;
+    border-radius: 5px;
+    background-color: white;
+    color: #007bff;
+}
+
+#ColorPicker option {
+    background-color: white;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+#ColorPicker option:checked {
+    background-color: #007bff;
+    color: white;
+}
+
+
   </style>
 </head>
 
@@ -46,10 +245,12 @@ main()
 
 <body>
   <div id="main-container">
+    <h1 id="title">Assignment 1: WebGL 2D Triangle Paint</h1>
     <canvas id="gl-canvas" width="600" height="600">
       Oops ... your browser doesn't support the HTML5 canvas element
     </canvas>
-    <br/>
+    <div class="row" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="color-div">
     <select id="ColorPicker" size="7">
       <option value="0" style="color: black;" selected="selected">Black</option>
       <option value="1" style="color: red;">Red</option>
@@ -59,32 +260,38 @@ main()
       <option value="5" style="color: magenta;">Magenta</option>
       <option value="6" style="color: cyan;">Cyan</option>
     </select>
-    <p>başlangiçta Layer 3 en önde</p>
+  </div>
+    <div class="layer-div" style="display: flex; justify-content: center; align-items: space-between; flex-direction: column;">
+    <p>Current Layer Stack from top to bottom</p>
     <select id="LayerControls" size="3">
       <option value="-1" selected>Layer 3</option>
       <option value="0">Layer 2</option>
       <option value="0.9">Layer 1</option>
     </select>
+    <button id="moveCurrentLayerUp">Move Current Layer Up</button>
+    <button id="moveCurrentLayerDown">Move Current Layer Down</button>
+  </div>
+  <div class="zoom-div" style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+    <p id="zoomScale">Zoom Scale: 1.00</p>
     <select id="ZoomControls" size="2">
       <option value="0">Zoom In</option>
       <option value="1">Zoom Out</option>
     </select>
-   <p id="zoomScale">1.00</p>
-    <br/>
-    <br/>
-    <br/>
-    <button id="ClearButton">Clear</button>
-    <button id="undo">Undo</button>
-    <button id="redo">Redo</button>
-    <button id="save">Save</button>
-    <button id="erase">Erase</button>
-    <button id="moveCurrentLayerUp">Move Current Layer Up</button>
-    <button id="moveCurrentLayerDown">Move Current Layer Down</button>
-    <input type="file" id="load" accept=".json"/> 
-    <br/>
+  </div>
+</div>
+<div class="row2" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+    <button id="undo" style="margin-left: 20px;">Undo</button>
+    <button id="redo" style="margin-left: 20px;">Redo</button>
+    <button id="save" style="margin-left: 20px;">Save</button>
+    <button id="erase" style="margin-left: 20px;">Erase</button>
+    <input type="file" id="load" accept=".json" style="margin-left: 20px;"/> 
+</div>
+
+<div class="row3" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
     <button id="rectangularSelect">Rectangular Select is Inactive</button>
     <button id="rectangularSelectCopy">Rectangular Select Copy is Inactive</button>
   </div>
+</div>
 </body>
 
 </html>
