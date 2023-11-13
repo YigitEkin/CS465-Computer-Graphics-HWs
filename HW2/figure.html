@@ -1,0 +1,96 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+</head>
+
+<head>
+  <script id="vertex-shader" type="x-shader/x-vertex">
+
+    attribute vec4 vPosition;
+    attribute vec4 vColor;
+    varying vec4 fColor;
+
+    uniform mat4 modelViewMatrix;
+    uniform mat4 projectionMatrix;
+    
+    
+    void main() {
+        gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+        fColor = vColor;
+    }
+</script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+
+    precision mediump float;
+    varying vec4 fColor;
+    
+    void main() {
+        gl_FragColor = fColor;
+    }
+</script>
+
+
+
+  <script type="text/javascript" src="./Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="./Common/initShaders.js"></script>
+  <script type="text/javascript" src="./Common/MV.js"></script>
+  <script type="text/javascript" src="octopus.js"></script>
+
+</head>
+
+<body>
+  <label for="body_parts">Choose a body part:</label>
+  <select name="body_parts" id="body_parts_select">
+    <option value="0" selected="true">Torso / Head</option>
+    <option value="3">Left Eye</option>
+    <option value="6">Right Eye</option>
+    <option value="9">Upper Leg 1</option>
+    <option value="12">Upper Leg 2</option>
+    <option value="15">Upper Leg 3</option>
+    <option value="18">Upper Leg 4</option>
+    <option value="21">upper Leg 5</option>
+    <option value="24">Upper Leg 6</option>
+    <option value="27">Upper Leg 7</option>
+    <option value="30">Upper Leg 8</option>
+    <option value="33">Mid Leg 1</option>
+    <option value="36">Mid Leg 2</option>
+    <option value="39">Mid Leg 3</option>
+    <option value="42">Mid Leg 4</option>
+    <option value="45">Mid Leg 5</option>
+    <option value="48">Mid Leg 6</option>
+    <option value="51">Mid Leg 7</option>
+    <option value="54">Mid Leg 8</option>
+    <option value="57">Lower Leg 1</option>
+    <option value="60">Lower Leg 2</option>
+    <option value="63">Lower Leg 3</option>
+    <option value="66">Lower Leg 4</option>
+    <option value="69">Lower Leg 5</option>
+    <option value="72">Lower Leg 6</option>
+    <option value="75">Lower Leg 7</option>
+    <option value="78">Lower Leg 8</option>
+  </select>
+  <div id="x_slider">
+    X-rotate angle -90 <input id="slide" type="range" min="-90" max="90" step="10" value="0">
+    90
+  </div><br>
+  <div id="y_slider">
+    Y-rotate angle -90 <input id="slide" type="range" min="-90" max="90" step="10" value="0">
+    90
+  </div><br>
+  <div id="z_slider">
+    Z-rotate angle -90 <input id="slide" type="range" min="-90" max="90" step="10" value="0">
+    90
+  </div><br>
+
+
+
+  <canvas id="gl-canvas" width="512" height="512">
+    Oops ... your browser doesnt support the HTML5 canvas element
+  </canvas>
+
+
+</body>
+
+</html>

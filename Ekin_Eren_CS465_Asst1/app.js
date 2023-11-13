@@ -284,32 +284,23 @@ function moveSelectedTriangles() {
       var deltaY = 0;
 
       if (keys['w']) {
-          deltaY += 0.1;
+          deltaY += 1/30;
       }
       if (keys['a']) {
-          deltaX -= 0.1;
+          deltaX -= 1/30;
       }
       if (keys['s']) {
-          deltaY -= 0.1;
+          deltaY -= 1/30;
       }
       if (keys['d']) {
-          deltaX += 0.1;
+          deltaX += 1/30;
       }
 
-      // Update positions of the selected triangles
-      for (var i = 0; i < rectangularSelectTrianglesIndex.length; i++) {
-          var triangleIndex = rectangularSelectTrianglesIndex[i];
-          for (var j = 0; j < 9; j += 3) {
-              vertexData[triangleIndex + j] += deltaX;
-              vertexData[triangleIndex + j + 1] += deltaY;
-          }
-      }
+      var moveStartIndex = vertexData.length - 18 - rectangularSelectTrianglesIndex.length * 9; // Index of the first vertex of the rectangular area
 
-      //update position of the gray rectangle
-      var rectStartIndex = vertexData.length - 18; // Index of the first vertex of the rectangular area
-      for (var i = 0; i < 6; i++) {
-          vertexData[rectStartIndex + i * 3] += deltaX;
-          vertexData[rectStartIndex + i * 3 + 1] += deltaY;
+      for (var i = moveStartIndex; i < vertexData.length; i+= 3) {
+          vertexData[i] += deltaX;
+          vertexData[i + 1] += deltaY;
       }
 
       // Update the vertex buffer
@@ -319,6 +310,8 @@ function moveSelectedTriangles() {
       // Draw the canvas
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, vertexData.length / 3);
+
+      
 
   } else if (rectangularSelectTrianglesIndex.length > 0 && rectangularSelectCopyTransitionMode) {
     deltaX = 0;
@@ -371,7 +364,11 @@ function moveSelectedTriangles() {
       var maxY = Math.max(rectangularSelectBeginnngPoint[1], rectangularSelectEndingPoint[1]);
 
       //find all triangles that are inside the rectangle
+
+      console.log(vertexData.length, colorData.length, "before");
       rectangularSelectTrianglesIndex = [];
+      var  tempVertexStorageData = [];
+      var tempColorStorageData = [];
       for (var i = 0; i < vertexData.length; i += 9) {
         var vertex1 = vertexData.slice(i, i + 3);
         var vertex2 = vertexData.slice(i + 3, i + 6);
@@ -381,40 +378,87 @@ function moveSelectedTriangles() {
           vertex3[0] >= minX && vertex3[0] <= maxX && vertex3[1] >= minY && vertex3[1] <= maxY && 
           vertex1[2] == Number(currentActiveZIndex) && vertex2[2] == Number(currentActiveZIndex) && vertex3[2] == Number(currentActiveZIndex)) {
           rectangularSelectTrianglesIndex.push(i);
+          tempVertexStorageData.push(...vertex1);
+          tempVertexStorageData.push(...vertex2);
+          tempVertexStorageData.push(...vertex3);
         }
       }
 
-      // draw a gray rectangle on the canvas using 2 triangles
-      //update the vertex buffer
-      // vertices are vec3 objects
+      var rectangularSelectTrianglesColorIndex = rectangularSelectTrianglesIndex.map(x => x * 4 / 3);
 
+      for (var i = 0; i < rectangularSelectTrianglesColorIndex.length; i++) {
+        var color1 = colorData.slice(rectangularSelectTrianglesColorIndex[i], rectangularSelectTrianglesColorIndex[i] + 4);
+        var color2 = colorData.slice(rectangularSelectTrianglesColorIndex[i] + 4, rectangularSelectTrianglesColorIndex[i] + 8);
+        var color3 = colorData.slice(rectangularSelectTrianglesColorIndex[i] + 8, rectangularSelectTrianglesColorIndex[i] + 12);
+        tempColorStorageData.push(...color1);
+        tempColorStorageData.push(...color2);
+        tempColorStorageData.push(...color3);
+      }
+
+      var newArrayData = [];
+      var newArrayColorData = [];
+      for (var i = 0; i < vertexData.length; i+=9) {
+        var vertex1 = vertexData.slice(i, i + 3);
+        var vertex2 = vertexData.slice(i + 3, i + 6);
+        var vertex3 = vertexData.slice(i + 6, i + 9);
+        if (rectangularSelectTrianglesIndex.includes(i)) {
+          continue;
+        } else {
+          newArrayData.push(...vertex1);
+          newArrayData.push(...vertex2);
+          newArrayData.push(...vertex3);
+        }
+      }
+
+      for (var i = 0; i < colorData.length; i+=12) {
+        var color1 = colorData.slice(i, i + 4);
+        var color2 = colorData.slice(i + 4, i + 8);
+        var color3 = colorData.slice(i + 8, i + 12);
+
+        if (rectangularSelectTrianglesColorIndex.includes(i)) {
+          continue;
+        } else {
+          newArrayColorData.push(...color1);
+          newArrayColorData.push(...color2);
+          newArrayColorData.push(...color3);
+        }
+
+      }
+
+      vertexData = newArrayData;
+      colorData = newArrayColorData;
+
+      vertexData.push(...tempVertexStorageData);
+      colorData.push(...tempColorStorageData);
+      
       var vertices = [
-        vec3(minX, minY, 1),
-        vec3(minX, maxY, 1),
-        vec3(maxX, maxY, 1),
-        vec3(maxX, minY, 1),
-        vec3(minX, minY, 1),
-        vec3(maxX, maxY, 1)
+        minX, minY, 1,
+        minX, maxY, 1,
+        maxX, maxY, 1,
+        maxX, minY, 1,
+        minX, minY, 1,
+        maxX, maxY, 1
       ];
 
-      gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 12 * index, flatten(vertices));
-      vertexData.push(...(vertices.flat()));
-
+      vertexData.push(...vertices);
+      
       //update the color buffer
       // colors are vec4 objects
       var newColors = [];
       for (var i = 0; i < 6; i++) {
-        newColors.push(vec4(0, 0, 0, 0.2));
+        newColors.push(0, 0, 0, 0.2);
       }
 
+      colorData.push(...newColors);
+      
+      gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertexData));
+
       gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 16 * index, flatten(newColors));
-      colorData.push(...(newColors.flat()));
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(colorData));
 
 
       //draw the canvas
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       index = vertexData.length / 3;
       gl.drawArrays(gl.TRIANGLES, 0, index);
@@ -648,14 +692,21 @@ function moveSelectedTriangles() {
       var newColorData = [];
       var found = false;
       var k = 0;
+
+      function compareWithEpsilon(a, b) {
+        return Math.abs(a - b) <  0.06;
+      }
+
       for (var i = 0; i < vertexData.length; i += 9) {
         var vertex = vertexData.slice(i, i + 9);
         var color = colorData.slice(k, k + 12);
 
         // check if vertices exists in the vertex buffer and if exists don't add it to the new vertex buffer
-        if (vertices[0][0] == vertex[0] && vertices[0][1] == vertex[1] && vertices[0][2] == vertex[2] &&
-          vertices[1][0] == vertex[3] && vertices[1][1] == vertex[4] && vertices[1][2] == vertex[5] &&
-          vertices[2][0] == vertex[6] && vertices[2][1] == vertex[7] && vertices[2][2] == vertex[8]) {
+        if (compareWithEpsilon(vertex[0], vertices[0][0]) && compareWithEpsilon(vertex[1], vertices[0][1]) &&
+          compareWithEpsilon(vertex[3], vertices[1][0]) && compareWithEpsilon(vertex[4], vertices[1][1]) &&
+          compareWithEpsilon(vertex[6], vertices[2][0]) && compareWithEpsilon(vertex[7], vertices[2][1]) &&
+          vertex[2] == Number(currentActiveZIndex) && vertex[5] == Number(currentActiveZIndex) && vertex[8] == Number(currentActiveZIndex)) {
+            
           found = true;
           index -= 3;
         } else {
