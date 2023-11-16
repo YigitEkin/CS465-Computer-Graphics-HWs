@@ -71,24 +71,53 @@
     <option value="75">Lower Leg 7</option>
     <option value="78">Lower Leg 8</option>
   </select>
+  <br>
+  <br>
   <div id="x_slider">
-    X-rotate angle -90 <input id="slide" type="range" min="-90" max="90" step="10" value="0">
+    X-rotate angle -90 <input id="slide" type="range" min="-90" max="90" step="5" value="0">
     90
   </div><br>
   <div id="y_slider">
-    Y-rotate angle -90 <input id="slide" type="range" min="-90" max="90" step="10" value="0">
+    Y-rotate angle -90 <input id="slide" type="range" min="-90" max="90" step="5" value="0">
     90
   </div><br>
   <div id="z_slider">
-    Z-rotate angle -90 <input id="slide" type="range" min="-90" max="90" step="10" value="0">
+    Z-rotate angle -90 <input id="slide" type="range" min="-90" max="90" step="5" value="0">
     90
+  </div><br>
+  <div id="x_translation">
+    X-translate -100 <input id="slide" type="range" min="-100" max="100" step="5" value="0">
+    100
+  </div><br>
+  <div id="y_translation">
+    Y-translate -100 <input id="slide" type="range" min="-100" max="100" step="5" value="0">
+    100
   </div><br>
 
 
 
-  <canvas id="gl-canvas" width="512" height="512">
+  <canvas id="gl-canvas" width="512" height="512" style="border: solid 1px #000;">
     Oops ... your browser doesnt support the HTML5 canvas element
   </canvas>
+  <br>
+  <button id="key_frame_button">
+    Save Keyframe
+  </button>
+  <button id="save_animation">
+    Save Animation
+  </button>
+  <button id="play_current">
+    Play Current Keyframes
+  </button>
+  <button id="play_swim">
+    Play Swim Animation
+  </button>
+  <button id="play_dance">
+    Play Dance Animation
+  </button>
+  <br>
+  <label for="load_animation" class="form-label">Load an Animation:</label>
+  <input class="form-control form-control" id="load_animation" type="file">
 
 
 </body>
