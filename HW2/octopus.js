@@ -16,8 +16,9 @@ var colors = [
   vec4(0.0, 0.0, 1.0, 1.0),
 ];
 
-const CUBE_VERTICES_OFFSET = 24;
-const CORAL_SPHERE_VERTICES_OFFSET = 49176;
+// const CUBE_VERTICES_OFFSET = 24;
+const CUBE_VERTICES_OFFSET = 0;
+const CORAL_SPHERE_VERTICES_OFFSET = 768 + CUBE_VERTICES_OFFSET;
 
 var vertices = [
   vec4(-0.5, -0.5, 0.5, 1.0),
@@ -34,6 +35,13 @@ var va = vec4(0.0, 0.0, -1.0, 1);
 var vb = vec4(0.0, 0.942809, 0.333333, 1);
 var vc = vec4(-0.816497, -0.471405, 0.333333, 1);
 var vd = vec4(0.816497, -0.471405, 0.333333, 1);
+
+var texCoord = [
+  vec2(0, 0),
+  vec2(0, 1),
+  vec2(1, 1),
+  vec2(1, 0)
+];
 
 var flag = 0;
 var selectedBodyPart = 0;
@@ -203,11 +211,34 @@ var modelViewLoc;
 var colorBuffer;
 var pointsArray = [];
 var colorArray = [];
+var texCoordsArray = [];
+var textureModeArray = [];
 
 var keyFrames = {
   thetas: [],
   translation: [],
 };
+
+var texSize = 64;
+
+var image1 = new Array()
+for (var i = 0; i < texSize; i++)  image1[i] = new Array();
+for (var i = 0; i < texSize; i++)
+  for (var j = 0; j < texSize; j++)
+    image1[i][j] = new Float32Array(4);
+for (var i = 0; i < texSize; i++) for (var j = 0; j < texSize; j++) {
+  var c = (((i & 0x8) == 0) ^ ((j & 0x8) == 0));
+  image1[i][j] = [c, c, c, 1];
+}
+
+// Convert floats to ubytes for texture
+
+var image2 = new Uint8Array(4 * texSize * texSize);
+
+for (var i = 0; i < texSize; i++)
+  for (var j = 0; j < texSize; j++)
+    for (var k = 0; k < 4; k++)
+      image2[4 * texSize * i + 4 * j + k] = 255 * image1[i][j][k];
 
 const SWIM_KEY_FRAMES = {
   thetas: [
@@ -273,6 +304,21 @@ function scale4(a, b, c) {
 
 //--------------------------------------------
 
+function configureTexture(image) {
+  console.log(image);
+  var theTexSize = Math.max(image.width, image.height);
+  console.log(theTexSize);
+  texture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, theTexSize, theTexSize, 0,
+    gl.RGBA, gl.UNSIGNED_BYTE, image);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+    gl.NEAREST_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+}
 
 function createNode(transform, render, sibling, child) {
   var node = {
@@ -306,7 +352,7 @@ function initNodes(Id) {
     case eye1IdY:
     case eye1IdZ:
 
-      m = translate(-torsoWidth * 0.2, torsoHeight * 0.60 + eyeWidth * 0.5, torsoWidth * 0.5)
+      m = translate(-torsoWidth * 0.2, torsoHeight * 0.60 + eyeWidth * 0.5, torsoWidth * 1)
       m = mult(m, rotate(theta[eye1IdX], 1, 0, 0));
       m = mult(m, rotate(theta[eye1IdZ], 0, 0, 1));
       m = mult(m, rotate(theta[eye1IdY], 0, 1, 0));
@@ -319,7 +365,7 @@ function initNodes(Id) {
     case eye2IdY:
     case eye2IdZ:
 
-      m = translate(torsoWidth * 0.2, torsoHeight * 0.60 + eyeWidth * 0.5, torsoWidth * 0.5);
+      m = translate(torsoWidth * 0.2, torsoHeight * 0.60 + eyeWidth * 0.5, torsoWidth * 1);
       m = mult(m, rotate(theta[eye2IdX], 1, 0, 0));
       m = mult(m, rotate(theta[eye2IdY], 0, 1, 0));
       m = mult(m, rotate(theta[eye2IdZ], 0, 0, 1));
@@ -661,16 +707,15 @@ function torso() {
 }
 
 function eye() {
-
   instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * eyeHeight, 0.0));
   instanceMatrix = mult(instanceMatrix, scale4(eyeWidth, eyeHeight, eyeWidth));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
   for (var i = CORAL_SPHERE_VERTICES_OFFSET; i < pointsArray.length; i += 3) gl.drawArrays(gl.TRIANGLES, i, 3);
+  // for (var i = CUBE_VERTICES_OFFSET; i < CORAL_SPHERE_VERTICES_OFFSET; i += 3) gl.drawArrays(gl.TRIANGLES, i, 3);
   // for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
 }
 
 function upperLeg() {
-
   instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * upperLegHeight, 0.0));
   instanceMatrix = mult(instanceMatrix, scale4(upperLegWidth, upperLegHeight, upperLegWidth));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
@@ -740,14 +785,32 @@ function triangle(a, b, c) {
   // colorArray.push(vec4(1.0, 0.0, 0.0, 1.0));
   // colorArray.push(vec4(0.0, 0.0, 1.0, 1.0));
   if (pointsArray.length < CORAL_SPHERE_VERTICES_OFFSET) {
-    var color = vec4(255 / 255, 127 / 255, 80 / 255, 1.0);
+    var textureMode = 0.0;
+    var color = vec4(1.0, 1.0, 1.0, 1.0);
+    // Push texture coordinates
+    texCoordsArray.push(texCoord[0]);
+    texCoordsArray.push(texCoord[1]);
+    texCoordsArray.push(texCoord[2]);
   }
   else {
+    var textureMode = 1.0;
     var color = vec4(1.0, 1.0, 1.0, 1.0);
+    // Generate texture coordinates based on object's position
+    var texCoordA = vec2((a[0] + 1.0) / 2.0, (a[1] + 1.0) / 2.0);
+    var texCoordB = vec2((b[0] + 1.0) / 2.0, (b[1] + 1.0) / 2.0);
+    var texCoordC = vec2((c[0] + 1.0) / 2.0, (c[1] + 1.0) / 2.0);
+
+    // Push texture coordinates
+    texCoordsArray.push(texCoordA[0], texCoordA[1]);
+    texCoordsArray.push(texCoordB[0], texCoordB[1]);
+    texCoordsArray.push(texCoordC[0], texCoordC[1]);
   }
   colorArray.push(color);
   colorArray.push(color);
   colorArray.push(color);
+  textureModeArray.push(textureMode);
+  textureModeArray.push(textureMode);
+  textureModeArray.push(textureMode);
 }
 
 function divideTriangle(a, b, c, count) {
@@ -772,6 +835,7 @@ function divideTriangle(a, b, c, count) {
 }
 
 function tetrahedron(a, b, c, d, n) {
+  console.log(a, b, c, d, n)
   divideTriangle(a, b, c, n);
   divideTriangle(d, c, b, n);
   divideTriangle(a, d, b, n);
@@ -798,10 +862,10 @@ function animate(theKeyFrame) {
   let thetasTemp = [];
   let translationTemp = [];
   for (let j = 0; j < keyFrameArray.length - 1; j++) {
-    thetasTemp.push(...interpolate(keyFrameArray[j], keyFrameArray[j + 1], 10))
+    thetasTemp.push(...interpolate(keyFrameArray[j], keyFrameArray[j + 1], 25))
   }
   for (let j = 0; j < translationArray.length - 1; j++) {
-    translationTemp.push(...interpolate(translationArray[j], translationArray[j + 1], 10))
+    translationTemp.push(...interpolate(translationArray[j], translationArray[j + 1], 25))
   }
   console.log(translationTemp);
   let i = 0;
@@ -818,7 +882,7 @@ function animate(theKeyFrame) {
     torso_translations[1] = translationTemp[i][1];
     for (k = 0; k < numNodes; k += 3) initNodes(k);
     i++;
-  }, 10);
+  }, 25);
   console.log("animation done!");
 };
 
@@ -830,7 +894,8 @@ window.onload = function init() {
   if (!gl) { alert("WebGL isn't available"); }
 
   gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clearColor(110 / 255, 190 / 255, 230 / 255, 1.0);
+  // gl.clearColor(110 / 255, 190 / 255, 230 / 255, 1.0);
+  gl.clearColor(1.0, 1.0, 1.0, 0.0);
 
   //
   //  Load shaders and initialize attribute buffers
@@ -851,10 +916,26 @@ window.onload = function init() {
   gl.uniformMatrix4fv(gl.getUniformLocation(program, "projectionMatrix"), false, flatten(projectionMatrix));
 
   modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix")
-
-  cube();
-  tetrahedron(va, vb, vc, vd, 6);
-  tetrahedron(va, vb, vc, vd, 6);
+  // pointsArray.push(vec4(-100.0, 100.0, -100.0, 1.0));
+  // pointsArray.push(vec4(100.0, 100.0, -100.0, 1.0));
+  // pointsArray.push(vec4(100.0, -100.0, -100.0, 1.0));
+  // pointsArray.push(vec4(-100.0, -100.0, -100.0, 1.0));
+  // colorArray.push(vec4(0.0, 1.0, 1.0, 1.0));
+  // colorArray.push(vec4(0.0, 1.0, 1.0, 1.0));
+  // colorArray.push(vec4(0.0, 1.0, 1.0, 1.0));
+  // colorArray.push(vec4(0.0, 1.0, 1.0, 1.0));
+  // texCoordsArray.push(texCoord[0]);
+  // texCoordsArray.push(texCoord[1]);
+  // texCoordsArray.push(texCoord[2]);
+  // texCoordsArray.push(texCoord[3]);
+  // textureModeArray.push(0.0);
+  // textureModeArray.push(0.0);
+  // textureModeArray.push(0.0);
+  // textureModeArray.push(0.0);
+  // cube();
+  tetrahedron(va, vb, vc, vd, 3);
+  console.log("1st tetrahedron done", pointsArray.length);
+  tetrahedron(va, vb, vc, vd, 3);
 
   vBuffer = gl.createBuffer();
 
@@ -872,6 +953,55 @@ window.onload = function init() {
   var vColor = gl.getAttribLocation(program, "vColor");
   gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vColor);
+
+  var tBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(texCoordsArray), gl.STATIC_DRAW);
+
+  var vTexCoord = gl.getAttribLocation(program, "vTexCoord");
+  gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vTexCoord);
+
+  // // open a buffer for texture mode
+  var vTextureModeBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vTextureModeBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(textureModeArray), gl.STATIC_DRAW);
+
+  // set v_texture_mode for every vertex
+  var vTextureMode = gl.getAttribLocation(program, "v_texture_mode");
+  gl.vertexAttribPointer(vTextureMode, 1, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vTextureMode);
+
+  var texture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  // Temporary texture
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+    new Uint8Array([0, 0, 255, 255]));
+  let image = new Image();
+  image.src = "octopus_skin.png";
+  // Load Actual Texture
+  image.addEventListener('load', function () {
+    // Load Actual Texture
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.generateMipmap(gl.TEXTURE_2D);
+  });
+
+  // var texture_eye = gl.createTexture();
+  // gl.activeTexture(gl.TEXTURE1);
+  // gl.bindTexture(gl.TEXTURE_2D, texture_eye);
+  // // Temporary texture
+  // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+  //   new Uint8Array([0, 0, 255, 255]));
+  // let image_eye = new Image();
+  // image_eye.src = "eye.jpg";
+  // image_eye.addEventListener('load', function () {
+  //   // Load Actual Texture
+  //   gl.bindTexture(gl.TEXTURE_2D, texture_eye);
+  //   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image_eye);
+  //   gl.generateMipmap(gl.TEXTURE_2D);
+  // });
 
   document.getElementById("x_slider").onchange = function () {
     theta[selectedBodyPart] = Number(event.srcElement.value);
@@ -940,9 +1070,22 @@ window.onload = function init() {
     }
     fr.readAsText(files);
   }
-
-  for (i = 0; i < numNodes; i += 3) initNodes(i);
+  gl.drawArrays(gl.TRIANGLE_FAN, 0, CUBE_VERTICES_OFFSET);
+  for (i = 0; i < numNodes; i += 3) {
+    if (i == eye1Id || i == eye2Id) {
+      gl.activeTexture(gl.TEXTURE1);
+    }
+    else {
+      gl.activeTexture(gl.TEXTURE0);
+    }
+    initNodes(i);
+  }
   console.log(pointsArray.length);
+  console.log(pointsArray);
+  console.log(colorArray.length);
+  console.log(texCoordsArray.length);
+  console.log(textureModeArray.length);
+  // console.log(textureModeArray);
   render();
 }
 

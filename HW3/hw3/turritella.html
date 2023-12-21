@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+<meta charset="utf-8">
+<title>Breather Surface</title>
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<link rel="stylesheet" href="styles.css">
+
+
+<script id="phong-vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+    attribute vec3 vNormal;
+    //uniform mat4 modelMatrix;
+    uniform mat4 viewMatrix;
+    uniform mat4 projectionMatrix;
+    varying vec4 fPosition;
+    varying vec3 fNormal;
+
+    void main()
+    {   fPosition = vPosition;
+        fNormal = vNormal;
+        gl_Position = projectionMatrix * viewMatrix * vPosition;
+        
+    } 
+</script>
+
+<script id="phong-fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    varying vec4 fPosition;
+    varying vec3 fNormal;
+    uniform vec4 color;
+    
+
+    //uniform mat4 modelMatrix;
+    uniform mat4 fViewMatrix;
+
+    uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+    uniform vec4 lightPosition;
+    uniform float shininess;
+
+    void main()
+    {
+        // Vertex position
+       vec3 vertex_cam_coords = (fViewMatrix * fPosition).xyz;
+
+        // Light position
+       vec3 light_cam_coords = (fViewMatrix * lightPosition).xyz;
+       vec3 L;
+       if (lightPosition.w == 0.0) L = normalize(light_cam_coords);
+       else L = normalize( light_cam_coords - vertex_cam_coords);
+
+        // Eye position
+       vec3 E = -normalize(vertex_cam_coords);
+       vec3 H = normalize( L + E );
+
+        // Normal vector
+       vec4 NN = vec4(fNormal,0);
+       vec3 N = normalize( (fViewMatrix*NN).xyz);
+
+        // Per Vertex Light
+       vec4 ambient = ambientProduct;
+
+       float Kd = max( dot(L, N), 0.0 );
+       vec4  diffuse = Kd*diffuseProduct;
+
+       float Ks = pow( max(dot(N, H), 0.0), shininess );
+       vec4 specular = Ks * specularProduct;
+
+       if( dot(L, N) < 0.0 ) {
+         specular = vec4(0.0, 0.0, 0.0, 1.0);
+        } 
+
+        vec4 fColor = ambient + diffuse +specular;
+        fColor.a = 1.0;
+
+        gl_FragColor = color * fColor;
+
+    }
+</script>
+
+<script id="gouraud-vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+    attribute vec3 vNormal;
+
+    varying vec4 fColor;
+
+    //uniform mat4 modelMatrix;
+    uniform mat4 viewMatrix;
+    uniform mat4 projectionMatrix;
+
+    uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+    uniform vec4 lightPosition;
+    uniform float shininess;
+
+    void main()
+    {   
+        // Vertex position
+       vec3 vertex_cam_coords = (viewMatrix * vPosition).xyz;
+
+        // Light position
+       vec3 light_cam_coords = (viewMatrix * lightPosition).xyz;
+       vec3 L;
+       if (lightPosition.w == 0.0) L = normalize(light_cam_coords);
+       else L = normalize( light_cam_coords - vertex_cam_coords);
+
+        // Eye position
+       vec3 E = -normalize(vertex_cam_coords);
+       vec3 H = normalize( L + E );
+
+        // Normal vector
+       vec4 NN = vec4(vNormal,0);
+       vec3 N = normalize( (viewMatrix*NN).xyz);
+
+        // Per Vertex Light
+       vec4 ambient = ambientProduct;
+
+       float Kd = max( dot(L, N), 0.0 );
+       vec4  diffuse = Kd*diffuseProduct;
+
+       float Ks = pow( max(dot(N, H), 0.0), shininess );
+       vec4 specular = Ks * specularProduct;
+
+       if( dot(L, N) < 0.0 ) {
+         specular = vec4(0.0, 0.0, 0.0, 1.0);
+        } 
+
+        gl_Position = projectionMatrix * viewMatrix * vPosition;
+       fColor = ambient + diffuse +specular;
+       fColor.a = 1.0;
+       
+    } 
+</script>
+
+<script id="gouraud-fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    uniform vec4 color;
+    varying vec4 fColor;
+    void main()
+    {
+        gl_FragColor = color * fColor;
+
+    }
+</script>
+
+<script id="wire-vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+
+    uniform mat4 viewMatrix;
+    uniform mat4 projectionMatrix;
+
+    void main()
+    {   
+        gl_Position = projectionMatrix * viewMatrix * vPosition;
+    } 
+</script>
+
+<script id="wire-fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    uniform vec4 color;
+    void main()
+    {
+        gl_FragColor = color;
+
+    }
+</script>
+
+<script id="texture-vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+    attribute vec2 vTexcoord;
+
+    uniform mat4 viewMatrix;
+    uniform mat4 projectionMatrix;
+
+    varying vec2 fTexcoord;
+    void main() 
+    {
+        gl_Position = projectionMatrix * viewMatrix * vPosition;
+        fTexcoord = vTexcoord;
+    } 
+</script>
+
+<script id="texture-fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    varying vec2 fTexcoord;
+    uniform sampler2D u_texture;
+    void main()
+    {
+        gl_FragColor = texture2D(u_texture, fTexcoord);
+
+    }
+</script>
+
+<script type="text/javascript" src="../Common/webgl-utils.js"></script>
+<script type="text/javascript" src="../Common/initShaders.js"></script>
+<script type="text/javascript" src="../Common/MV.js"></script>
+<script type="text/javascript" src="main.js"></script>
+<script type="text/javascript" src="camera_handler.js"></script>
+<script type="text/javascript" src="init_shaders.js"></script>
+<script type="text/javascript" src="init_vertices.js"></script>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+<script language="JavaScript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.2.1/math.js"></script>
+</head>
+
+<body>
+
+    <h2>Breather Surface</h2>
+
+    <div class="row">
+
+        <div class="col-sm-6">
+    
+            <canvas id="gl-canvas" class="canvas" width="512" height="512" padding="0">
+                Oops ... your browser doesn't support the HTML5 canvas element
+            </canvas>
+
+            <br><br>
+            
+            <h5> Camera  </h5>
+
+            <div class="slidecontainer">
+                theta -90<input id="thetaSlider" type="range"
+                min="-90" max="90" step="5" value="0" />
+                90
+            </div>
+            <div class="slidecontainer">
+            phi -180<input id="phiSlider" type="range"
+                min="-180" max="180" step="5" value="0" />
+                180
+            </div>
+            <div class="slidecontainer">
+                radius 0.05<input id="radiusSlider" type="range"
+                min="0.05" max="10" step="0.1" value="3" />
+                10
+            </div>
+        </div>
+
+        <div class="col-sm-6">
+            
+            <h5> Parameters </h5>
+            <div id="sliders">
+                <div class="slidecontainer">
+                    <label>Range of the U Value: <output id="range_u_value"></output></label>
+                    <span>1</span>
+                    <input id="range_u_input" type="range" min="1" max="180" step="1" value="14">
+                    <span>180</span>
+                </div>
+        
+                <div class="slidecontainer">
+                    <label>Scale for U Value: <output id="scale_u_value"></output></label>
+                    <span>0.01</span>
+                    <input id="scale_u_value_input" type="range" min="0.01" max="0.99" step="0.01" value="1">
+                    <span>1</span>
+                </div>
+        
+                <div class="slidecontainer">
+                    <label>Range of V Value: <output id="range_v_value"></output></label>
+                    <span>-1</span>
+                    <input id="range_v_value_input" type="range" min="1" max="180" step="1" value="37">
+                    <span>180</span>
+                </div>
+        
+                <div class="slidecontainer">
+                    <label>Scale of V Value: <output id="scale_v_value"></output></label>
+                    <span>0.01</span>
+                    <input id="scale_v_value_input" type="range" min="0.01" max="0.99" step="0.01" value="1">
+                    <span>1</span>
+                </div>
+        
+                <div class="slidecontainer">
+                    <label>AA Value: <output id="aa_value"></output></label>
+                    <span>0.01</span>
+                    <input id="aa_value_input" type="range" min="0.01" max="1" step="0.01" value="0.5">
+                    <span>1</span>
+                </div>
+            </div>
+
+            <h5>Render</h5>
+            <div class="form-check form-check-inline">
+                <input  class="form-check-input" id="render1" type="radio" name="render" onchange="selectRender(this);" value="wire" checked/>
+                <label class="form-check-label" for="render1">Wire</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" id="render2" type="radio"  name="render" onchange="selectRender(this);" value="gouraud" />
+                <label class="form-check-label" for="render2">Gouraud</label>
+            </div>
+            <div  class="form-check form-check-inline">
+                <input class="form-check-input" id="render3" type="radio" name="render" onchange="selectRender(this);" value="phong" />
+                <label class="form-check-label" for="render3">Phong</label>
+            </div>
+            <div  class="form-check form-check-inline">
+                <input class="form-check-input" id="render4" type="radio" name="render" onchange="selectRender(this);" value="texture"/>
+                <label class="form-check-label" for="render4">Texture</label>
+            </div>
+
+            <h5>Texture</h5>
+            <div class="form-check form-check-inline">
+                <input  class="form-check-input" id="texture1" type="radio" name="texture" onchange="selectTexture(this);" value="textures/checkerboard.png" checked/>
+                <label class="form-check-label" for="texture1">Checkerboard</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" id="texture2" type="radio"  name="texture" onchange="selectTexture(this);" value="textures/water.jpeg" />
+                <label class="form-check-label" for="texture2">Water</label>
+            </div>
+            <div  class="form-check form-check-inline">
+                <input class="form-check-input" id="texture3" type="radio" name="texture" onchange="selectTexture(this);" value="textures/basketball.jpeg" />
+                <label class="form-check-label" for="texture3">Basketball</label>
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+
+    <!-- <div class="footer-div">
+        <div class="footer">
+        <p>Ahmet Burak Yıldırım & Hamza Pehlivan</p>
+        </div>
+    </div> -->
+</html>
+

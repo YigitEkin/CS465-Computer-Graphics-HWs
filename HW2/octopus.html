@@ -11,13 +11,20 @@
     attribute vec4 vColor;
     varying vec4 fColor;
 
+    attribute  vec2 vTexCoord;
+    varying vec2 fTexCoord;
+
     uniform mat4 modelViewMatrix;
     uniform mat4 projectionMatrix;
-    
+
+    attribute float v_texture_mode;
+    varying float f_texture_mode;
     
     void main() {
-        gl_Position = projectionMatrix * modelViewMatrix * vPosition;
         fColor = vColor;
+        f_texture_mode = v_texture_mode;
+        fTexCoord = vTexCoord;
+        gl_Position = projectionMatrix * modelViewMatrix * vPosition;
     }
 </script>
 
@@ -25,17 +32,28 @@
 
     precision mediump float;
     varying vec4 fColor;
+
+    varying  vec2 fTexCoord;
+    uniform sampler2D texture;
+    uniform sampler2D texture_eye;
+
+    varying float f_texture_mode;
     
     void main() {
-        gl_FragColor = fColor;
+      if (f_texture_mode  < 0.5)
+          gl_FragColor = fColor*texture2D( texture, fTexCoord );
+      else if (f_texture_mode > 0.5)
+          gl_FragColor = fColor*texture2D( texture_eye, fTexCoord );
+      else
+          gl_FragColor = fColor;
     }
 </script>
 
 
 
-  <script type="text/javascript" src="./Commons/webgl-utils.js"></script>
-  <script type="text/javascript" src="./Commons/initShaders.js"></script>
-  <script type="text/javascript" src="./Commons/MV.js"></script>
+  <script type="text/javascript" src="./Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="./Common/initShaders.js"></script>
+  <script type="text/javascript" src="./Common/MV.js"></script>
   <script type="text/javascript" src="octopus.js"></script>
 
 </head>
@@ -96,7 +114,8 @@
 
 
 
-  <canvas id="gl-canvas" width="512" height="512" style="border: solid 1px #000;">
+  <canvas id="gl-canvas" width="512" height="512"
+    style="border: solid 1px #000; background-image: url(sea_image.jpeg); background-size: cover;">
     Oops ... your browser doesnt support the HTML5 canvas element
   </canvas>
   <br>
